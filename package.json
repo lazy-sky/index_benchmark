@@ -6,13 +6,21 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "scheduler": "node scheduler.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "yahoo-finance2": "^2.8.1",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "@supabase/supabase-js": "^2.38.0",
+    "dotenv": "^16.3.1"
   },
-  "keywords": ["finance", "benchmark", "yahoo-finance"],
+  "keywords": [
+    "finance",
+    "benchmark",
+    "yahoo-finance",
+    "supabase"
+  ],
   "author": "",
   "license": "ISC"
-} 
+}

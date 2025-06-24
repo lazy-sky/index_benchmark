@@ -1,19 +1,33 @@
 import axios from 'axios';
 import yf from 'yahoo-finance2';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 
+// 환경 변수 로드
+dotenv.config();
+
+// 2) 설정
 const ASSETS = {
-  Gold: 'GLD',
+  GOLD: 'GLD',
   'S&P500': '^GSPC',
   KOSPI: '^KS11',
 };
 
+// 최근 6개월 기준으로 설정
 const END = new Date().toISOString().slice(0, 10); // 오늘 날짜
-const START = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10); // 6개월 전
-
-console.log(START, END);
-
+const START = new Date(Date.now() - 6 * 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10); // 6개월 전
 const COINONE_QUOTE = 'KRW';
 const COINONE_TARGET = 'BTC';
+
+// Supabase 설정 (환경 변수에서 로드)
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('Supabase 환경 변수가 설정되지 않았습니다. .env 파일을 확인해주세요.');
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const getMdd = (arr) => {
   let peak = -Infinity;
@@ -64,8 +78,40 @@ const fetchCoinoneKRW_BTC = async () => {
   return priceMap;
 };
 
+const saveToSupabase = async (results) => {
+  const today = new Date().toISOString().slice(0, 10);
+  
+  for (const [assetName, data] of Object.entries(results)) {
+    const record = {
+      name: assetName,
+      ror: data['Return (%)'] ? parseFloat(data['Return (%)']) : null,
+      mdd: data['Max Drawdown (%)'] ? parseFloat(data['Max Drawdown (%)']) : null,
+    };
+
+    try {
+      const { error } = await supabase
+        .from('benchmark')
+        .upsert(record, { 
+          onConflict: 'name',
+          ignoreDuplicates: false 
+        });
+      
+      if (error) {
+        console.error(`❌ ${assetName} 업데이트 실패:`, error.message);
+      } else {
+        console.log(`✅ ${assetName} 업데이트 완료`);
+      }
+    } catch (e) {
+      console.error(`❌ ${assetName} 업데이트 중 오류:`, e.message);
+    }
+  }
+};
+
 const main = async () => {
   const results = {};
+
+  console.log(`📊 분석 기간: ${START} ~ ${END}`);
+  console.log('🔄 데이터 수집 중...\n');
 
   for (const [name, symbol] of Object.entries(ASSETS)) {
     try {
@@ -77,11 +123,11 @@ const main = async () => {
       const mdd = getMdd(prices);
       results[name] = {
         'Return (%)': ret.toFixed(2),
-        'MDD (%)': mdd.toFixed(2),
+        'Max Drawdown (%)': mdd.toFixed(2),
       };
     } catch (e) {
       console.warn(`⚠️ ${name}(${symbol}) 에러:`, e.message);
-      results[name] = { 'Return (%)': null, 'MDD (%)': null };
+      results[name] = { 'Return (%)': null, 'Max Drawdown (%)': null };
     }
   }
 
@@ -95,16 +141,21 @@ const main = async () => {
     
     const ret = (btcPrices.at(-1) / btcPrices[0] - 1) * 100;
     const mdd = getMdd(btcPrices);
-    results['Bitcoin (KRW)'] = {
+    results['BTC'] = {
       'Return (%)': ret.toFixed(2),
-      'MDD (%)': mdd.toFixed(2),
+      'Max Drawdown (%)': mdd.toFixed(2),
     };
   } catch (e) {
     console.warn(`⚠️ Bitcoin(KRW) 에러:`, e.message);
-    results['Bitcoin (KRW)'] = { 'Return (%)': null, 'MDD (%)': null };
+    results['BTC'] = { 'Return (%)': null, 'Max Drawdown (%)': null };
   }
 
+  console.log('📈 분석 결과:');
   console.table(results);
+  
+  console.log('\n💾 Supabase에 저장 중...');
+  await saveToSupabase(results);
+  console.log('✅ 모든 작업 완료!');
 };
 
 main();

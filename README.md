@@ -1,13 +1,13 @@
 # Financial Benchmark Analysis
 
-금융 자산들의 성과를 비교 분석하는 Node.js 프로젝트입니다. Yahoo Finance API와 Coinone API를 활용하여 다양한 자산의 수익률과 최대 낙폭(MDD)을 계산합니다.
+금융 자산들의 성과를 비교 분석하는 Node.js 프로젝트입니다. Yahoo Finance API와 Coinone API를 활용하여 다양한 자산의 수익률과 최대 낙폭(MDD)을 계산하고, Supabase에 자동으로 저장합니다.
 
 ## 📊 분석 대상 자산
 
-- **Gold (GLD)**: 금 ETF
+- **GOLD (GLD)**: 금 ETF
 - **S&P500 (^GSPC)**: 미국 S&P 500 지수
 - **KOSPI (^KS11)**: 한국 종합주가지수
-- **Bitcoin (KRW)**: 원화 기준 비트코인
+- **BTC (BTC-KRW)**: 원화 기준 비트코인
 
 ## 🚀 설치 및 실행
 
@@ -16,9 +16,26 @@
 npm install
 ```
 
-### 2. 실행
+### 2. 환경 변수 설정
+```bash
+# .env 파일 생성
+cp .env.example .env
+
+# .env 파일 편집하여 Supabase 정보 입력
+SUPABASE_URL=your_supabase_url_here
+SUPABASE_ANON_KEY=your_supabase_anon_key_here
+```
+
+### 3. 실행 옵션
+
+#### 일회성 실행
 ```bash
 npm start
+```
+
+#### 자동화 스케줄러 실행 (매일 오전 9시)
+```bash
+npm run scheduler
 ```
 
 ## 📈 분석 지표
@@ -30,6 +47,29 @@ npm start
 ### 최대 낙폭 (MDD %)
 - 분석 기간 동안 발생한 최대 손실률
 - 고점 대비 최저점까지의 하락폭
+
+## 💾 데이터 저장
+
+### Supabase 테이블 구조
+분석 결과는 `benchmark` 테이블에 다음 구조로 저장됩니다:
+
+```sql
+CREATE TABLE benchmark (
+  name TEXT NOT NULL PRIMARY KEY,
+  ror DECIMAL(10,2),
+  mdd DECIMAL(10,2)
+);
+```
+
+### 저장되는 데이터
+- **name**: 자산명 (Primary Key)
+- **ror**: 수익률 (Return on Return, %)
+- **mdd**: 최대 낙폭 (Maximum Drawdown, %)
+
+### 업데이트 방식
+- **Upsert 방식**: 기존 데이터가 있으면 업데이트, 없으면 새로 생성
+- **Primary Key**: `name` 필드를 기준으로 중복 처리
+- **실행 시점**: 매일 스케줄러 실행 시 최신 데이터로 업데이트
 
 ## ⚙️ 설정
 
@@ -47,59 +87,11 @@ const START = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().sli
 
 ```javascript
 const ASSETS = {
-  Gold: 'GLD',
+  GOLD: 'GLD',
   'S&P500': '^GSPC',
   KOSPI: '^KS11',
+  BTC: 'BTC-KRW',
   // 새로운 자산 추가 가능
   // '자산명': 'Yahoo Finance 심볼'
 };
 ```
-
-## 📦 사용된 기술
-
-- **Node.js**: 런타임 환경
-- **yahoo-finance2**: Yahoo Finance API 클라이언트
-- **axios**: HTTP 클라이언트 (Coinone API 호출용)
-- **ES Modules**: 최신 JavaScript 모듈 시스템
-
-## 🔧 API 정보
-
-### Yahoo Finance API
-- 주식, ETF, 지수 데이터 제공
-- 무료 사용 가능
-- 일별 종가 데이터 활용
-
-### Coinone API
-- 비트코인 원화 거래 데이터 제공
-- 공개 API (인증 불필요)
-- 일별 캔들 데이터 활용
-
-## 📋 출력 예시
-
-```
-┌───────────────┬────────────┬──────────┐
-│    (index)    │ Return (%) │ MDD (%)  │
-├───────────────┼────────────┼──────────┤
-│     Gold      │  '27.98'   │ '-7.11'  │
-│    S&P500     │  '-0.21'   │ '-18.90' │
-│     KOSPI     │  '27.42'   │ '-14.14' │
-│ Bitcoin (KRW) │   '1.07'   │ '-28.02' │
-└───────────────┴────────────┴──────────┘
-```
-
-## 🛠️ 개발
-
-### 프로젝트 구조
-```
-benchmark/
-├── package.json      # 프로젝트 설정 및 의존성
-├── index.js            # 메인 분석 스크립트
-└── README.md        # 프로젝트 문서
-```
-
-### 주요 함수
-
-- `getMdd(arr)`: 최대 낙폭 계산
-- `fetchYahoo(symbol)`: Yahoo Finance 데이터 로딩
-- `fetchCoinoneKRW_BTC()`: Coinone 비트코인 데이터 로딩
-- `main()`: 메인 실행 함수
