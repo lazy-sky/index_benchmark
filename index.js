@@ -16,11 +16,10 @@ const STOCKS = {
   NASDAQ: '^IXIC',                // 나스닥 종합지수
   EURO_STOXX: '^STOXX50E',        // 유럽 STOXX 50 지수
   NIKKEI: '^N225',                // 니케이 225 지수
-  HANG_SENG: '^HSI',              // 항셍 지수
+  HANG_SENG: '^HSI',              // 항셍 지수 (홍콩 대형주 50개)
   
   // 채권
-  BOND_10Y: '^TNX',               // 미국 10년 국채
-  BOND_30Y: '^TYX',               // 미국 30년 국채
+  BOND_ETF: 'TLT',               // 미국 20년 국채 ETF (iShares 20+ Year Treasury Bond ETF)
   
   // 통화
   DOLLAR_INDEX: 'UUP',            // 달러 인덱스 (Invesco DB US Dollar Index Bullish Fund)
