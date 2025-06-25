@@ -3,18 +3,47 @@ import yf from 'yahoo-finance2';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
-// 환경 변수 로드
 dotenv.config();
 
-// 2) 설정
-const ASSETS = {
-  GOLD: 'GLD',
-  'S&P500': '^GSPC',
-  KOSPI: '^KS11',
-  BTC: null, // 비트코인은 별도 처리
+const STOCKS = {
+  // 원자재
+  GOLD: 'GLD',                    // 금 (SPDR Gold Trust ETF)
+  OIL: 'USO',                     // 원유 (United States Oil Fund ETF)
+  
+  // 주요 지수
+  'S&P500': '^GSPC',              // S&P 500 지수
+  KOSPI: '^KS11',                 // 코스피 종합지수
+  NASDAQ: '^IXIC',                // 나스닥 종합지수
+  EURO_STOXX: '^STOXX50E',        // 유럽 STOXX 50 지수
+  NIKKEI: '^N225',                // 니케이 225 지수
+  HANG_SENG: '^HSI',              // 항셍 지수
+  
+  // 채권
+  BOND_10Y: '^TNX',               // 미국 10년 국채
+  BOND_30Y: '^TYX',               // 미국 30년 국채
+  
+  // 통화
+  DOLLAR_INDEX: 'UUP',            // 달러 인덱스 (Invesco DB US Dollar Index Bullish Fund)
+  EURO: 'FXE',                    // 유로 (Invesco CurrencyShares Euro Trust)
+  YEN: 'FXY',                     // 엔화 (Invesco CurrencyShares Japanese Yen Trust)
+  
+  // 섹터 ETF
+  TECH_ETF: 'XLK',                // 기술주 (Technology Select Sector SPDR Fund)
+  FINANCIAL_ETF: 'XLF',           // 금융주 (Financial Select Sector SPDR Fund)
+  HEALTHCARE_ETF: 'XLV',          // 헬스케어 (Health Care Select Sector SPDR Fund)
+  ENERGY_ETF: 'XLE',              // 에너지 (Energy Select Sector SPDR Fund)
+  
+  // 개별 기업 주식
+  SAMSUNG: '005930.KS',           // 삼성전자 (한국)
+  NAVER: '035420.KS',             // 네이버 (한국)
+  KAKAO: '035720.KS',             // 카카오 (한국)
+  APPLE: 'AAPL',                  // 애플 (미국)
+  TESLA: 'TSLA',                  // 테슬라 (미국)
+  NVIDIA: 'NVDA',                 // 엔비디아 (미국)
 };
 
-// 분석 기간 설정
+const CRYPTOS = ['BTC', 'ETH', 'XRP', 'DOGE', 'SOL']; // 암호화폐 목록
+
 const END = new Date().toISOString().slice(0, 10); // 오늘 날짜
 const PERIODS = {
   '1m': 30,    // 1개월
@@ -24,9 +53,7 @@ const PERIODS = {
 };
 
 const COINONE_QUOTE = 'KRW';
-const COINONE_TARGET = 'BTC';
 
-// Supabase 설정 (환경 변수에서 로드)
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
@@ -36,7 +63,6 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// 3) 유틸 함수: 최대 낙폭 계산
 const maxDrawdown = (arr) => {
   let peak = -Infinity;
   let mdd = 0;
@@ -52,7 +78,6 @@ const maxDrawdown = (arr) => {
   return mdd * 100;
 };
 
-// 4) Yahoo Finance 로딩 함수
 const fetchYahoo = async (symbol, startDate) => {
   const queryOptions = { period1: startDate, period2: END, interval: '1d' };
   const result = await yf.chart(symbol, queryOptions);
@@ -60,9 +85,8 @@ const fetchYahoo = async (symbol, startDate) => {
   return quotes.map((r) => r.close);
 };
 
-// 5) 코인원 KRW-BTC 로딩 함수
-const fetchCoinoneKRW_BTC = async (startDate) => {
-  const url = `https://api.coinone.co.kr/public/v2/chart/${COINONE_QUOTE}/${COINONE_TARGET}`;
+const fetchCoinoneCrypto = async (target, startDate) => {
+  const url = `https://api.coinone.co.kr/public/v2/chart/${COINONE_QUOTE}/${target}`;
   const { data } = await axios.get(url, {
     params: { interval: '1d', size: 500 },
     headers: { Accept: 'application/json' },
@@ -81,14 +105,13 @@ const fetchCoinoneKRW_BTC = async (startDate) => {
   return entries.map(e => e.close);
 };
 
-// 6) 특정 기간의 분석 결과 계산
 const calculatePeriodMetrics = async (symbol, periodDays, isBitcoin = false) => {
   const startDate = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   
   try {
     let prices;
     if (isBitcoin) {
-      prices = await fetchCoinoneKRW_BTC(startDate);
+      prices = await fetchCoinoneCrypto(symbol, startDate);
     } else {
       prices = await fetchYahoo(symbol, startDate);
     }
@@ -110,7 +133,6 @@ const calculatePeriodMetrics = async (symbol, periodDays, isBitcoin = false) => 
   }
 };
 
-// 7) Supabase에 데이터 저장 함수
 const saveToSupabase = async (results) => {
   for (const [assetName, data] of Object.entries(results)) {
     const record = {
@@ -144,16 +166,14 @@ const saveToSupabase = async (results) => {
   }
 };
 
-// 8) 메인 로직
 const main = async () => {
   const results = {};
   
   console.log(`📊 분석 기간: ${END} 기준`);
   console.log('🔄 데이터 수집 중...\n');
   
-  // 8.1) Yahoo Finance 자산들 분석
-  for (const [name, symbol] of Object.entries(ASSETS)) {
-    if (name === 'BTC') continue; // BTC는 아래에서 따로 처리
+  for (const [name, symbol] of Object.entries(STOCKS)) {
+    if (symbol === null) continue; // 암호화폐들은 아래에서 따로 처리
     results[name] = {};
     console.log(`📈 ${name} 분석 중...`);
     
@@ -165,18 +185,18 @@ const main = async () => {
     console.log('');
   }
 
-  // 8.2) 비트코인 (BTC) 분석
-  results['BTC'] = {};
-  console.log(`📈 BTC 분석 중...`);
-  
-  for (const [period, days] of Object.entries(PERIODS)) {
-    const metrics = await calculatePeriodMetrics('BTC', days, true);
-    results['BTC'][period] = metrics;
-    console.log(`  ${period}: ROR ${metrics.ror}%, MDD ${metrics.mdd}%`);
+  for (const crypto of CRYPTOS) {
+    results[crypto] = {};
+    console.log(`📈 ${crypto} 분석 중...`);
+    
+    for (const [period, days] of Object.entries(PERIODS)) {
+      const metrics = await calculatePeriodMetrics(crypto, days, true);
+      results[crypto][period] = metrics;
+      console.log(`  ${period}: ROR ${metrics.ror}%, MDD ${metrics.mdd}%`);
+    }
+    console.log('');
   }
-  console.log('');
 
-  // 9) 결과 출력
   console.log('📈 최종 분석 결과:');
   for (const [assetName, periods] of Object.entries(results)) {
     console.log(`\n${assetName}:`);
@@ -185,7 +205,6 @@ const main = async () => {
     }
   }
   
-  // 10) Supabase에 저장
   console.log('\n💾 Supabase에 저장 중...');
   await saveToSupabase(results);
   console.log('✅ 모든 작업 완료!');
