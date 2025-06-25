@@ -153,6 +153,15 @@ const saveToSupabase = async (results) => {
           onConflict: 'name',
           ignoreDuplicates: false 
         });
+
+        await supabase
+        .from('benchmark_updated_at')
+        .upsert({
+          id: 1,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id'
+        });
       
       if (error) {
         console.error(`❌ ${assetName} 업데이트 실패:`, error.message);

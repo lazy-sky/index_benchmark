@@ -50,8 +50,10 @@ const ASSET_DESCRIPTIONS = {
 
 function App() {
   const [data, setData] = useState([])
+  const [updatedAt, setUpdatedAt] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
 
   useEffect(() => {
     fetchData()
@@ -65,8 +67,13 @@ function App() {
         .select('*')
         .order('name')
 
+      const { data: updatedAtData } = await supabase
+        .from('benchmark_updated_at')
+        .select('*')
+
       if (error) throw error
       setData(data || [])
+      setUpdatedAt(updatedAtData[0].updated_at || null)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -87,6 +94,57 @@ function App() {
     })
     
     return grouped
+  }
+
+  const handleSort = (key) => {
+    let direction = 'asc'
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc'
+    }
+    setSortConfig({ key, direction })
+  }
+
+  const sortData = (assets) => {
+    if (!sortConfig.key) return assets
+
+    return [...assets].sort((a, b) => {
+      let aValue, bValue
+
+      // 정렬할 값 추출
+      if (sortConfig.key === 'name') {
+        aValue = a.name
+        bValue = b.name
+      } else {
+        const [metric, period] = sortConfig.key.split('_')
+        aValue = a[`${metric}_${period}`]
+        bValue = b[`${metric}_${period}`]
+      }
+
+      // null 값 처리
+      if (aValue === null || aValue === undefined) aValue = sortConfig.direction === 'asc' ? Infinity : -Infinity
+      if (bValue === null || bValue === undefined) bValue = sortConfig.direction === 'asc' ? Infinity : -Infinity
+
+      // 문자열 정렬
+      if (typeof aValue === 'string') {
+        if (sortConfig.direction === 'asc') {
+          return aValue.localeCompare(bValue)
+        } else {
+          return bValue.localeCompare(aValue)
+        }
+      }
+
+      // 숫자 정렬
+      if (sortConfig.direction === 'asc') {
+        return aValue - bValue
+      } else {
+        return bValue - aValue
+      }
+    })
+  }
+
+  const getSortIcon = (key) => {
+    if (sortConfig.key !== key) return '↕️'
+    return sortConfig.direction === 'asc' ? '↑' : '↓'
   }
 
   if (loading) {
@@ -125,6 +183,25 @@ function App() {
         <div style={{ marginBottom: '32px' }}>
           <h1 style={{ fontSize: '30px', fontWeight: 'bold', color: '#1e3a8a' }}>자산 벤치마크 대시보드</h1>
           <p style={{ marginTop: '8px', color: '#6b7280' }}>다양한 자산의 수익률 및 최대 낙폭 분석</p>
+          <div style={{ 
+            marginTop: '12px', 
+            padding: '8px 12px', 
+            backgroundColor: '#dbeafe', 
+            borderRadius: '6px',
+            border: '1px solid #93c5fd'
+          }}>
+            <p style={{ 
+              margin: '0', 
+              fontSize: '14px', 
+              color: '#1e40af',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <span>🕘</span>
+              최근 업데이트: {new Date(updatedAt).toLocaleString()}
+            </p>
+          </div>
         </div>
 
         {Object.entries(groupedAssets).map(([sectionName, assets]) => (
@@ -145,27 +222,48 @@ function App() {
               <div style={{ backgroundColor: 'white', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', borderRadius: '8px', overflow: 'hidden' }}>
                 <div style={{ overflowX: 'auto' }}>
                   <table style={{ minWidth: '100%', borderCollapse: 'collapse' }}>
-                    <thead style={{ backgroundColor: '#f9fafb' }}>
+                    <thead style={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
                       <tr>
-                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
-                          자산
+                        <th 
+                          style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '600', color: '#374151', textAlign: 'left', cursor: 'pointer' }}
+                          onClick={() => handleSort('name')}
+                        >
+                          자산 {getSortIcon('name')}
                         </th>
-                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
-                          1개월
+                        <th 
+                          style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '600', color: '#374151', textAlign: 'right', cursor: 'pointer' }}
+                          onClick={() => handleSort('ror_1m')}
+                        >
+                          1개월 수익률 {getSortIcon('ror_1m')}
                         </th>
-                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
-                          3개월
+                        <th 
+                          style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '600', color: '#374151', textAlign: 'right', cursor: 'pointer' }}
+                          onClick={() => handleSort('ror_3m')}
+                        >
+                          3개월 수익률 {getSortIcon('ror_3m')}
                         </th>
-                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
-                          6개월
+                        <th 
+                          style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '600', color: '#374151', textAlign: 'right', cursor: 'pointer' }}
+                          onClick={() => handleSort('ror_6m')}
+                        >
+                          6개월 수익률 {getSortIcon('ror_6m')}
                         </th>
-                        <th style={{ padding: '12px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
-                          12개월
+                        <th 
+                          style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '600', color: '#374151', textAlign: 'right', cursor: 'pointer' }}
+                          onClick={() => handleSort('ror_12m')}
+                        >
+                          1년 수익률 {getSortIcon('ror_12m')}
+                        </th>
+                        <th 
+                          style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '600', color: '#374151', textAlign: 'right', cursor: 'pointer' }}
+                          onClick={() => handleSort('mdd_12m')}
+                        >
+                          1년 MDD {getSortIcon('mdd_12m')}
                         </th>
                       </tr>
                     </thead>
                     <tbody style={{ backgroundColor: 'white' }}>
-                      {assets.map((asset) => (
+                      {sortData(assets).map((asset) => (
                         <tr key={asset.name} style={{ borderBottom: '1px solid #e5e7eb' }}>
                           <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '500', color: '#111827' }}>
                             <div>
@@ -175,44 +273,29 @@ function App() {
                               </div>
                             </div>
                           </td>
-                          <td style={{ padding: '16px 24px', fontSize: '14px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              <div style={{ color: asset.ror_1m > 0 ? '#059669' : '#dc2626' }}>
-                                ROR: {formatNumber(asset.ror_1m)}
-                              </div>
-                              <div style={{ color: '#6b7280' }}>
-                                MDD: {formatNumber(asset.mdd_1m)}
-                              </div>
+                          <td style={{ padding: '16px 24px', fontSize: '14px', textAlign: 'right' }}>
+                            <div style={{ color: asset.ror_1m > 0 ? '#059669' : '#dc2626' }}>
+                              {formatNumber(asset.ror_1m)}
                             </div>
                           </td>
-                          <td style={{ padding: '16px 24px', fontSize: '14px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              <div style={{ color: asset.ror_3m > 0 ? '#059669' : '#dc2626' }}>
-                                ROR: {formatNumber(asset.ror_3m)}
-                              </div>
-                              <div style={{ color: '#6b7280' }}>
-                                MDD: {formatNumber(asset.mdd_3m)}
-                              </div>
+                          <td style={{ padding: '16px 24px', fontSize: '14px', textAlign: 'right' }}>
+                            <div style={{ color: asset.ror_3m > 0 ? '#059669' : '#dc2626' }}>
+                              {formatNumber(asset.ror_3m)}
                             </div>
                           </td>
-                          <td style={{ padding: '16px 24px', fontSize: '14px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              <div style={{ color: asset.ror_6m > 0 ? '#059669' : '#dc2626' }}>
-                                ROR: {formatNumber(asset.ror_6m)}
-                              </div>
-                              <div style={{ color: '#6b7280' }}>
-                                MDD: {formatNumber(asset.mdd_6m)}
-                              </div>
+                          <td style={{ padding: '16px 24px', fontSize: '14px', textAlign: 'right' }}>
+                            <div style={{ color: asset.ror_6m > 0 ? '#059669' : '#dc2626' }}>
+                              {formatNumber(asset.ror_6m)}
                             </div>
                           </td>
-                          <td style={{ padding: '16px 24px', fontSize: '14px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              <div style={{ color: asset.ror_12m > 0 ? '#059669' : '#dc2626' }}>
-                                ROR: {formatNumber(asset.ror_12m)}
-                              </div>
-                              <div style={{ color: '#6b7280' }}>
-                                MDD: {formatNumber(asset.mdd_12m)}
-                              </div>
+                          <td style={{ padding: '16px 24px', fontSize: '14px', textAlign: 'right' }}>
+                            <div style={{ color: asset.ror_12m > 0 ? '#059669' : '#dc2626' }}>
+                              {formatNumber(asset.ror_12m)}
+                            </div>
+                          </td>
+                          <td style={{ padding: '16px 24px', fontSize: '14px', textAlign: 'right' }}>
+                            <div style={{ color: '#dc2626' }}>
+                              {formatNumber(asset.mdd_12m)}
                             </div>
                           </td>
                         </tr>
@@ -235,23 +318,6 @@ function App() {
             )}
           </div>
         ))}
-
-        <div style={{ marginTop: '32px', textAlign: 'center' }}>
-          <button
-            onClick={fetchData}
-            style={{
-              backgroundColor: '#2563eb',
-              color: 'white',
-              fontWeight: '500',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            데이터 새로고침
-          </button>
-        </div>
       </div>
     </div>
   )
