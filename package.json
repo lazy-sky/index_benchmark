@@ -7,6 +7,9 @@
   "scripts": {
     "start": "node index.js",
     "scheduler": "node scheduler.js",
+    "dev": "cd frontend && pnpm run dev",
+    "build": "cd frontend && pnpm run build",
+    "preview": "cd frontend && pnpm run preview",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
