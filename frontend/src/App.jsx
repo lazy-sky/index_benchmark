@@ -6,6 +6,38 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 const supabase = createClient(supabaseUrl, supabaseKey)
 
+// SEO 메타 정보 업데이트 함수
+const updateMetaTags = () => {
+  // 동적 메타 정보 업데이트
+  document.title = '자산 벤치마크 대시보드 - 투자 수익률 및 최대 낙폭 분석'
+  
+  // 메타 설명 업데이트
+  let metaDescription = document.querySelector('meta[name="description"]')
+  if (!metaDescription) {
+    metaDescription = document.createElement('meta')
+    metaDescription.name = 'description'
+    document.head.appendChild(metaDescription)
+  }
+  metaDescription.content = '다양한 자산(주식, 채권, 원자재, 암호화폐)의 수익률과 최대 낙폭(MDD)을 실시간으로 비교 분석하는 투자 벤치마크 대시보드입니다.'
+  
+  // Open Graph 메타 정보 업데이트
+  let ogTitle = document.querySelector('meta[property="og:title"]')
+  if (!ogTitle) {
+    ogTitle = document.createElement('meta')
+    ogTitle.setAttribute('property', 'og:title')
+    document.head.appendChild(ogTitle)
+  }
+  ogTitle.content = '자산 벤치마크 대시보드 - 투자 수익률 및 최대 낙폭 분석'
+  
+  let ogDescription = document.querySelector('meta[property="og:description"]')
+  if (!ogDescription) {
+    ogDescription = document.createElement('meta')
+    ogDescription.setAttribute('property', 'og:description')
+    document.head.appendChild(ogDescription)
+  }
+  ogDescription.content = '다양한 자산의 수익률과 최대 낙폭을 실시간으로 비교 분석하는 투자 벤치마크 대시보드입니다.'
+}
+
 // 자산 섹션 정의
 const ASSET_SECTIONS = {
   '원자재': ['GOLD', 'OIL'],
@@ -57,6 +89,7 @@ function App() {
 
   useEffect(() => {
     fetchData()
+    updateMetaTags() // SEO 메타 정보 업데이트
   }, [])
 
   const fetchData = async () => {
