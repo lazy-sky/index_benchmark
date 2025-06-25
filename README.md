@@ -59,9 +59,6 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```bash
 # 일회성 실행
 npm start
-
-# 스케줄러 실행 (매일 자동 업데이트)
-npm run scheduler
 ```
 
 #### 프론트엔드 (대시보드)
@@ -80,7 +77,6 @@ npm run preview
 
 ```
 ├── index.js              # 메인 데이터 수집 스크립트
-├── scheduler.js          # 스케줄러
 ├── package.json          # 백엔드 의존성
 ├── .env                  # 백엔드 환경 변수
 ├── frontend/             # React 프론트엔드
